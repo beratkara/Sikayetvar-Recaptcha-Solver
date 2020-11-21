@@ -1,12 +1,18 @@
 const express = require('express');
+
 const { Cluster } = require('puppeteer-cluster');
+
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+puppeteer.use(StealthPlugin())
+
 const app = express();
 
 (async () => {
 
     const cluster = await Cluster.launch({
         concurrency: Cluster.CONCURRENCY_BROWSER,
-        maxConcurrency: 10,
+        maxConcurrency: 100,
         timeout: 60000,
         monitor: false,
         puppeteerOptions: {
@@ -23,6 +29,7 @@ const app = express();
                 '--disable-gpu'
             ]
         },
+        puppeteer: puppeteer,
     });
 
     await cluster.task(async ({ page, data: data }) => {
@@ -32,11 +39,14 @@ const app = express();
         console.log("Started : ",action);
 
         await page.setBypassCSP(true);
-        await page.goto(data.url, {waitUntil: 'networkidle2', timeout: 60000});
+        //await page.setViewport({ width: 0, height: 0 });
+        await page.goto(data.url, {waitUntil: 'networkidle2', timeout: 120000});
 
         console.log("Page Loaded !");
 
-        await page.waitForSelector('[class="btn-login login-singnup-link js-popup-member"]');
+        //cloudflare waiting
+        await page.waitForSelector('[class="btn-login login-singnup-link js-popup-member"]' , {timeout: 80000});
+        await page.waitForTimeout(1000);
         await page.click('[class="btn-login login-singnup-link js-popup-member"]');
 
         console.log("Click Login Button");
@@ -56,7 +66,7 @@ const app = express();
         return await getToken(action);
     });
 
-    app.get('/', async function (req, res) { // expects URL to be given by ?url=...
+    app.get('/', async function (req, res) {
         try {
             console.log("Request : ",req.query);
             let data = {
